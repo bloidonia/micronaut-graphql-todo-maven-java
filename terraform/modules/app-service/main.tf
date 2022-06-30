@@ -85,5 +85,9 @@ resource "azurerm_linux_web_app" "application" {
     # These are app specific environment variables
     "MICRONAUT_ENVIRONMENTS"       = "prod,azure"
     "MICRONAUT_SERVER_PORT"        = 8080
+
+    "DATASOURCES_DEFAULT_URL"      = "jdbc:postgresql://${var.database_url}"
+    "DATASOURCES_DEFAULT_USERNAME" = var.database_username
+    "DATASOURCES_DEFAULT_PASSWORD" = var.database_password
   }
 }
