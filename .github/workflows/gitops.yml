@@ -13,12 +13,13 @@ on:
       - 'env-*'
 
 jobs:
-  manage-infrastructure:
+  build-and-deploy:
     runs-on: ubuntu-20.04
     outputs:
       application_name: ${{ steps.infrastructure-deployment.outputs.application_name }}
       application_url: ${{ steps.infrastructure-deployment.outputs.application_url }}
       resource_group: ${{ steps.infrastructure-deployment.outputs.resource_group }}
+      container_registry_name: ${{ steps.infrastructure-deployment.outputs.container_registry_name }}
     steps:
       - name: Apply Terraform configuration
         id: infrastructure-deployment
@@ -26,30 +27,28 @@ jobs:
         with:
           azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
           tf_storage_account: ${{ secrets.TF_STORAGE_ACCOUNT }}
-  build:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Build a Java project using Maven
+      - name: Build a Micronaut docker image project using Maven
         uses: microsoft/nubesgen-actions/gitops-build-java-maven@v0.8.0
         with:
-          build_command: mvn clean package
-          package_path: ${{ github.workspace }}/target/[^original]*.jar
-  deploy:
-    needs: [manage-infrastructure, build]
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Deploy a Java application to Azure App Service
-        uses: microsoft/nubesgen-actions/gitops-deploy-to-app-service-java@v0.8.0
+          build_command: mvn clean package -Dpackaging=docker -Djib.to.image=${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}
+      - name: Login to Azure
+        uses: azure/login@v1
         with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          application_name: ${{ needs.manage-infrastructure.outputs.application_name }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Push to Azure Container Registry
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          az acr login -n ${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io
+          docker push ${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}
+        shell: bash
   display-information:
-    needs: [manage-infrastructure]
+    needs: [build-and-deploy]
     runs-on: ubuntu-20.04
     steps:
       - name: Display Azure infrastructure information
         uses: microsoft/nubesgen-actions/gitops-display-information@v0.8.0
         with:
-          application_name: ${{ needs.manage-infrastructure.outputs.application_name }}
-          application_url: ${{ needs.manage-infrastructure.outputs.application_url }}
-          resource_group: ${{ needs.manage-infrastructure.outputs.resource_group }}
+          application_name: ${{ needs.build-and-deploy.outputs.application_name }}
+          application_url: ${{ needs.build-and-deploy.outputs.application_url }}
+          resource_group: ${{ needs.build-and-deploy.outputs.resource_group }}
