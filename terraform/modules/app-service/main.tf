@@ -7,6 +7,25 @@ terraform {
   }
 }
 
+resource "azurecaf_name" "container_registry" {
+  name          = var.application_name
+  resource_type = "azurerm_container_registry"
+  suffixes      = [var.environment]
+}
+
+resource "azurerm_container_registry" "container-registry" {
+  name                = azurecaf_name.container_registry.result
+  resource_group_name = var.resource_group
+  location            = var.location
+  admin_enabled       = true
+  sku                 = "Basic"
+
+  tags = {
+    "environment"      = var.environment
+    "application-name" = var.application_name
+  }
+}
+
 resource "azurecaf_name" "app_service_plan" {
   name          = var.application_name
   resource_type = "azurerm_app_service_plan"
@@ -49,9 +68,8 @@ resource "azurerm_linux_web_app" "application" {
 
   site_config {
     application_stack {
-      java_server         = "JAVA"
-      java_server_version = "17"
-      java_version        = "java17"
+      docker_image     = "${azurerm_container_registry.container-registry.name}.azurecr.io/${var.application_name}/${var.application_name}"
+      docker_image_tag = "latest"
     }
     always_on        = true
     ftps_state       = "FtpsOnly"
@@ -59,13 +77,13 @@ resource "azurerm_linux_web_app" "application" {
 
   app_settings = {
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+    "DOCKER_REGISTRY_SERVER_URL"          = "https://${azurerm_container_registry.container-registry.name}.azurecr.io"
+    "DOCKER_REGISTRY_SERVER_USERNAME"     = azurerm_container_registry.container-registry.admin_username
+    "DOCKER_REGISTRY_SERVER_PASSWORD"     = azurerm_container_registry.container-registry.admin_password
+    "WEBSITES_PORT"                       = "8080"
 
     # These are app specific environment variables
     "MICRONAUT_ENVIRONMENTS"       = "prod,azure"
-    "MICRONAUT_SERVER_PORT"        = 80
-
-    "DATASOURCES_DEFAULT_URL"      = "jdbc:postgresql://${var.database_url}"
-    "DATASOURCES_DEFAULT_USERNAME" = var.database_username
-    "DATASOURCES_DEFAULT_PASSWORD" = var.database_password
+    "MICRONAUT_SERVER_PORT"        = 8080
   }
 }
