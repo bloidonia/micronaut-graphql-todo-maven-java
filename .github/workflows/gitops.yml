@@ -30,7 +30,7 @@ jobs:
       - name: Build a Micronaut docker image project using Maven
         uses: microsoft/nubesgen-actions/gitops-build-java-maven@v0.8.0
         with:
-          build_command: mvn clean package -Dpackaging=docker -Djib.to.image=${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}
+          build_command: ./mvnw clean package -Dpackaging=docker -Djib.to.image=${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}
       - name: Login to Azure
         uses: azure/login@v1
         with:
