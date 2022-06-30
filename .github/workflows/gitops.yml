@@ -42,6 +42,11 @@ jobs:
           az acr login -n ${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io
           docker push ${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}
         shell: bash
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ steps.infrastructure-deployment.outputs.application_name }}
+          images: '${{ steps.infrastructure-deployment.outputs.container_registry_name }}.azurecr.io/${{ steps.infrastructure-deployment.outputs.application_name }}/${{ steps.infrastructure-deployment.outputs.application_name }}:${{ github.sha }}'
   display-information:
     needs: [build-and-deploy]
     runs-on: ubuntu-20.04
